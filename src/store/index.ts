@@ -10,7 +10,7 @@ import type {
   RecipeIngredient,
   MenuComponent,
 } from "../types";
-import { computeRecipeTotalCost, computeMenuCost, round2, toNumber } from "../utils/calc";
+import { computeRecipeTotalCost, computeMenuCost, round2, toNumber, refreshComponentActualPrices } from "../utils/calc";
 
 const uid = (prefix = "id") =>
   `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -139,7 +139,7 @@ const recalculateAll = (state: {
 
   // 3. Recompute menu cost_price based on freshest data
   const menus = state.menus.map((m) => {
-    const cost = computeMenuCost(m, ingredients, recipes, state.packages);
+    const cost = computeMenuCost(m);
     return { ...m, cost_price: cost };
   });
 
@@ -293,12 +293,7 @@ export const useAppStore = create<AppState>()(
           const nextPkgs = [...s.packages, pkg];
           const nextMenus = s.menus.map((m) => ({
             ...m,
-            cost_price: computeMenuCost(
-              { ...m, packages: m.packages },
-              s.ingredients,
-              s.recipes,
-              nextPkgs,
-            ),
+            cost_price: computeMenuCost({ ...m, packages: m.packages }),
           }));
           return { packages: nextPkgs, menus: nextMenus };
         });
@@ -348,9 +343,41 @@ export const useAppStore = create<AppState>()(
       },
 
       addMenu: (data) => {
-        const menu: Menu = { id: uid("menu"), cost_price: 0, ...data };
-        set((s) => ({ menus: [...s.menus, menu] }));
-        return menu;
+        // Refresh every component's actual_price from current data so the
+        // stored cost aggregates faithfully from `actual_price` sums.
+        set((s) => {
+          const ingredients = refreshComponentActualPrices(
+            data.ingredients,
+            s.ingredients,
+            s.recipes,
+            s.packages,
+          );
+          const recipes = refreshComponentActualPrices(
+            data.recipes,
+            s.ingredients,
+            s.recipes,
+            s.packages,
+          );
+          const packages = refreshComponentActualPrices(
+            data.packages,
+            s.ingredients,
+            s.recipes,
+            s.packages,
+          );
+          const built: Menu = {
+            id: uid("menu"),
+            name: data.name,
+            selling_price: toNumber(data.selling_price, 0),
+            ingredients,
+            recipes,
+            packages,
+            cost_price: 0,
+          };
+          built.cost_price = computeMenuCost(built);
+          return { menus: [...s.menus, built] };
+        });
+        // Return the freshly-saved menu (re-read from store to be safe)
+        return get().menus[get().menus.length - 1];
       },
 
       updateMenu: (id, patch) => {
@@ -364,12 +391,27 @@ export const useAppStore = create<AppState>()(
               recipes: patch.recipes ?? m.recipes,
               packages: patch.packages ?? m.packages,
             };
-            const cost = computeMenuCost(
-              merged,
+            // Refresh actual_price on every component from the latest data
+            // before computing the menu's total cost.
+            merged.ingredients = refreshComponentActualPrices(
+              merged.ingredients,
               s.ingredients,
               s.recipes,
               s.packages,
             );
+            merged.recipes = refreshComponentActualPrices(
+              merged.recipes,
+              s.ingredients,
+              s.recipes,
+              s.packages,
+            );
+            merged.packages = refreshComponentActualPrices(
+              merged.packages,
+              s.ingredients,
+              s.recipes,
+              s.packages,
+            );
+            const cost = computeMenuCost(merged);
             return { ...merged, cost_price: cost };
           });
           return { menus: nextMenus };

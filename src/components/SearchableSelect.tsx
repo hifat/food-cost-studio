@@ -61,8 +61,12 @@ export default function SearchableSelect({
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 flex flex-col overflow-hidden">
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute left-0 right-0 top-full z-[70] mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl ring-1 ring-black/5 max-h-80 flex flex-col overflow-hidden">
             <div className="p-2 border-b border-slate-200 bg-slate-50">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />

@@ -154,20 +154,31 @@ export const computeMenuComponentActual = (
   return 0;
 };
 
-export const computeMenuCost = (
-  menu: Menu,
+export const computeMenuCost = (menu: Menu): number => {
+  // Sum the actual_price stored on every component across all three buckets.
+  // The caller is responsible for ensuring each component's actual_price is
+  // up to date (see refreshComponentActualPrices below).
+  const all = [...menu.ingredients, ...menu.recipes, ...menu.packages];
+  return round2(all.reduce((sum, comp) => sum + toNumber(comp.actual_price, 0), 0));
+};
+
+/**
+ * Returns a fresh copy of `comps` where each component's `actual_price`
+ * has been recomputed from the current ingredient/recipe/package data.
+ * Safe with empty arrays and missing targets.
+ */
+export const refreshComponentActualPrices = (
+  comps: MenuComponent[],
   ingredients: Ingredient[],
   recipes: Recipe[],
   packages: Package[],
-): number => {
-  const all = [...menu.ingredients, ...menu.recipes, ...menu.packages];
-  return round2(
-    all.reduce(
-      (sum, comp) => sum + computeMenuComponentActual(comp, ingredients, recipes, packages),
-      0,
+): MenuComponent[] =>
+  comps.map((c) => ({
+    ...c,
+    actual_price: round2(
+      computeMenuComponentActual(c, ingredients, recipes, packages),
     ),
-  );
-};
+  }));
 
 export const computeMenuProfit = (menu: Menu): { profit: number; margin: number } => {
   const cp = toNumber(menu.cost_price, 0);
