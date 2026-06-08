@@ -387,7 +387,7 @@ function RecipeOverviewModal({
 
                   if (ing) {
                     const baseUnitPrice = calculateBaseUnitPrice(ing);
-                    const convertedQty = convertUnit(ri.usage_quantity, ri.usage_unit, ing.purchase_unit, ing.purchase_quantity);
+                    const convertedQty = convertUnit(ri.usage_quantity, ri.usage_unit, ing.purchase_unit);
                     rawCost = baseUnitPrice * convertedQty;
                     const yieldDivisor = (ri.yield || 100) / 100;
                     actualCost = yieldDivisor === 0 ? rawCost : rawCost / yieldDivisor;
