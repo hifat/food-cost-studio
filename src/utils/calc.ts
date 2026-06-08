@@ -14,6 +14,28 @@ const safeDiv = (a: number, b: number, fallback = 0): number => {
   return a / b;
 };
 
+export const calculateBaseUnitPrice = (ingredient: { purchase_price: number; purchase_quantity: number }) => {
+  return safeDiv(toNumber(ingredient.purchase_price, 0), toNumber(ingredient.purchase_quantity, 0), 0);
+};
+
+export const convertUnit = (
+  value: number,
+  from: UsageUnit,
+  to: UsageUnit,
+): number => {
+  if (!isFinite(value)) return 0;
+  if (from === to) return value;
+  if (from === "kg" && to === "gram") return value * 1000;
+  if (from === "gram" && to === "kg") return value / 1000;
+  if (
+    (from === "piece" || from === "ml" || from === "gram") &&
+    (to === "piece" || to === "ml" || to === "gram")
+  ) {
+    return value;
+  }
+  return 0;
+};
+
 export const toNumber = (v: unknown, fallback = 0): number => {
   if (typeof v === "number" && isFinite(v)) return v;
   if (typeof v === "string" && v.trim() !== "") {
@@ -201,6 +223,10 @@ export interface PlatformPrices {
   vatShopee: number;
 }
 
+export const computeTargetSellingPrice = (costWithOverhead: number, foodCostPct: number) => {
+  return foodCostPct > 0 ? round2(safeDiv(costWithOverhead, foodCostPct / 100, 0)) : 0;
+};
+
 export const computePlatformPrices = (
   menu: Menu,
   setting: Setting,
@@ -216,8 +242,7 @@ export const computePlatformPrices = (
 
   const costWithOverhead = round2(cp + (cp * otherPct) / 100);
 
-  const targetSelling =
-    foodCostPct > 0 ? round2(safeDiv(cp, foodCostPct / 100, 0)) : 0;
+  const targetSelling = computeTargetSellingPrice(costWithOverhead, foodCostPct);
 
   const backCalc = (price: number, pct: number) =>
     pct >= 100 ? 0 : round2(safeDiv(price, 1 - pct / 100, 0));

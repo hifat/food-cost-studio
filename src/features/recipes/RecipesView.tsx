@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from "react";
-import { Pencil, Trash2, ChefHat, Soup, Cake, Cookie, Beaker } from "lucide-react";
+import { Pencil, Trash2, ChefHat, Soup, Cake, Cookie, Beaker, BarChart3 } from "lucide-react";
 import { useAppStore } from "../../store";
 import type { Recipe, RecipeType } from "../../types";
 import { RECIPE_TYPE_LABELS } from "../../types";
-import { fmt, fmtTHB, computeRecipeTotalCost } from "../../utils/calc";
+import { fmt, fmtTHB, computeRecipeTotalCost, calculateBaseUnitPrice, convertUnit, round2, toNumber } from "../../utils/calc";
+import { getIngredientById } from "../../utils/ingredient";
 import Modal from "../../components/Modal";
 import SearchInput from "../../components/SearchInput";
 import PageHeader from "../../components/PageHeader";
@@ -23,6 +24,7 @@ const FILTER_OPTIONS: { value: FilterType; label: string; icon: React.ReactNode 
 export default function RecipesView() {
   const recipes = useAppStore((s) => s.recipes);
   const ingredients = useAppStore((s) => s.ingredients);
+  const setting = useAppStore((s) => s.setting);
   const addRecipe = useAppStore((s) => s.addRecipe);
   const updateRecipe = useAppStore((s) => s.updateRecipe);
   const deleteRecipe = useAppStore((s) => s.deleteRecipe);
@@ -30,6 +32,7 @@ export default function RecipesView() {
   const [typeFilter, setTypeFilter] = useState<FilterType>("FOOD");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Recipe | null>(null);
+  const [overview, setOverview] = useState<Recipe | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Recipe | null>(null);
   const formAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +113,7 @@ export default function RecipesView() {
           ariaLabel="Filter recipes by type"
           options={filterOptionsWithCounts}
           value={typeFilter}
-          onChange={setTypeFilter}
+          onChange={(val) => setTypeFilter(val as FilterType)}
         />
         <div className="flex items-center gap-2">
           <SearchInput
@@ -125,6 +128,7 @@ export default function RecipesView() {
       {/* Inline Recipe Form (anchor for edit-scroll) */}
       <div ref={formAnchorRef} className="mb-5">
         <RecipeForm
+          key={editing?.id ?? "__new__"}
           initial={editing}
           onSave={handleSave}
           onCancel={handleCancelEdit}
@@ -228,6 +232,13 @@ export default function RecipesView() {
                       <td className="table-td text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
+                            onClick={() => setOverview(r)}
+                            className="p-1.5 rounded-md text-indigo-600 hover:bg-indigo-50"
+                            title="Overview"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(r)}
                             className="p-1.5 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
                             title="Edit"
@@ -251,6 +262,14 @@ export default function RecipesView() {
           </div>
         )}
       </div>
+
+      {/* Overview Modal */}
+      <RecipeOverviewModal
+        recipe={overview}
+        ingredients={ingredients}
+        setting={setting}
+        onClose={() => setOverview(null)}
+      />
 
       {/* Delete confirmation */}
       <Modal
@@ -279,6 +298,169 @@ export default function RecipesView() {
           )}
         </p>
       </Modal>
+    </div>
+  );
+}
+
+// ----- Recipe Overview Modal -----
+
+interface RecipeOverviewModalProps {
+  recipe: Recipe | null;
+  ingredients: ReturnType<typeof useAppStore.getState>["ingredients"];
+  setting: ReturnType<typeof useAppStore.getState>["setting"];
+  onClose: () => void;
+}
+
+function RecipeOverviewModal({
+  recipe,
+  ingredients,
+  setting,
+  onClose,
+}: RecipeOverviewModalProps) {
+  if (!recipe) {
+    return (
+      <Modal open={false} onClose={onClose} title="Recipe Overview" size="lg">
+        <div />
+      </Modal>
+    );
+  }
+
+  const foodCost = round2(
+    recipe.ingredients.reduce((sum, ri) => sum + toNumber(ri.actual_price, 0), 0)
+  );
+
+  const costWithOverhead = round2(
+    foodCost + (foodCost * toNumber(setting.other_percentage, 0)) / 100
+  );
+
+  return (
+    <Modal
+      open={!!recipe}
+      onClose={onClose}
+      title={`Overview · ${recipe.name}`}
+      subtitle="Recipe cost breakdown and overhead."
+      size="xl"
+    >
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-5">
+        <PriceBlock
+          label="Food Cost"
+          value={foodCost}
+          tone="indigo"
+          hint="Sum of all ingredient actual_price"
+        />
+        <PriceBlock
+          label="Cost + Overhead"
+          value={costWithOverhead}
+          tone="amber"
+          hint={`+${setting.other_percentage}% other expenses`}
+        />
+      </div>
+
+      <h3 className="text-sm font-semibold text-slate-700 mb-2">Ingredient Breakdown</h3>
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="table-th w-12">No.</th>
+                <th className="table-th">Ingredient Name</th>
+                <th className="table-th text-right">Usage Qty</th>
+                <th className="table-th">Unit</th>
+                <th className="table-th text-right">Cost (Raw)</th>
+                <th className="table-th text-right">Actual Cost (Yield)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recipe.ingredients.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="table-td text-center text-slate-400">
+                    No ingredients
+                  </td>
+                </tr>
+              ) : (
+                recipe.ingredients.map((ri, idx) => {
+                  const ing = getIngredientById(ri.ingredient_id, ingredients);
+                  const name = ing ? ing.name : "(removed)";
+                  
+                  let rawCost = 0;
+                  let actualCost = 0;
+
+                  if (ing) {
+                    const baseUnitPrice = calculateBaseUnitPrice(ing);
+                    const convertedQty = convertUnit(ri.usage_quantity, ri.usage_unit, ing.purchase_unit, ing.purchase_quantity);
+                    rawCost = baseUnitPrice * convertedQty;
+                    const yieldDivisor = (ri.yield || 100) / 100;
+                    actualCost = yieldDivisor === 0 ? rawCost : rawCost / yieldDivisor;
+                  } else {
+                    // Fallback to stored actual price if ingredient was removed
+                    actualCost = ri.actual_price || 0;
+                  }
+
+                  return (
+                    <tr key={`${ri.ingredient_id}-${idx}`} className="hover:bg-slate-50/60">
+                      <td className="table-td text-slate-500">{idx + 1}</td>
+                      <td className="table-td font-medium text-slate-800">{name}</td>
+                      <td className="table-td text-right">{fmt(ri.usage_quantity, 2)}</td>
+                      <td className="table-td">{ri.usage_unit}</td>
+                      <td className="table-td text-right text-slate-600">
+                        {fmtTHB(round2(rawCost))}
+                      </td>
+                      <td className="table-td text-right font-semibold text-indigo-600">
+                        {fmtTHB(round2(actualCost))}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50/60">
+                <td colSpan={5} className="table-td text-right font-semibold text-slate-700">
+                  Total Food Cost
+                </td>
+                <td className="table-td text-right font-bold text-emerald-600">
+                  {fmtTHB(foodCost)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PriceBlock({
+  label,
+  value,
+  tone = "indigo",
+  hint,
+}: {
+  label: string;
+  value: number;
+  tone?: "indigo" | "emerald" | "amber" | "rose" | "slate";
+  hint?: string;
+}) {
+  const tones: Record<string, string> = {
+    indigo: "from-indigo-500 to-indigo-600",
+    emerald: "from-emerald-500 to-emerald-600",
+    amber: "from-amber-500 to-amber-600",
+    rose: "from-rose-500 to-rose-600",
+    slate: "from-slate-500 to-slate-600",
+  };
+  return (
+    <div className="card p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span
+          className={`text-lg font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent`}
+        >
+          {fmtTHB(value)}
+        </span>
+      </div>
+      {hint && <div className="text-[10px] text-slate-400 mt-1">{hint}</div>}
     </div>
   );
 }
