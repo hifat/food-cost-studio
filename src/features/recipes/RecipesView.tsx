@@ -187,7 +187,9 @@ export default function RecipesView() {
                   const total = computeRecipeTotalCost(r, ingredients);
                   const servingSize = r.serving_size || 0;
                   const servingUnit = r.serving_unit || "piece";
-                  const costPerUnit = servingSize > 0 ? total / servingSize : 0;
+                  const otherPct = toNumber(setting.other_percentage, 0);
+                  const adjustedTotal = round2(total + (total * otherPct) / 100);
+                  const costPerUnit = servingSize > 0 ? adjustedTotal / servingSize : 0;
                   const ingNames = r.ingredients
                     .map((ri) => {
                       const ing = ingredients.find((x) => x.id === ri.ingredient_id);
@@ -227,7 +229,7 @@ export default function RecipesView() {
                       </td>
                       <td className="table-td text-slate-600">{servingUnit}</td>
                       <td className="table-td text-right font-medium text-slate-800">
-                        {fmtTHB(round2(total + (total * toNumber(setting.other_percentage, 0)) / 100))}
+                        {fmtTHB(adjustedTotal)}
                       </td>
                       <td className="table-td text-right text-slate-600">
                         {fmtTHB(costPerUnit)} / {servingUnit}
