@@ -156,10 +156,14 @@ export const computeMenuComponentActual = (
   const recipe = recipes.find((x) => x.id === comp.target_id);
   if (recipe) {
     const recipeCost = computeRecipeTotalCost(recipe, ingredients);
-    // We treat the recipe as a 1-unit "package" costing recipeCost
+    // Derive Cost per Unit = (Total Cumulative Cost) / recipe.serving_size
+    // Prevent division-by-zero with fallback to 1
+    const servingSize = (recipe.serving_size !== undefined && recipe.serving_size > 0) ? recipe.serving_size : 1;
+    const servingUnit = recipe.serving_unit || "piece";
+
     const recipeAsPurchasable: Purchasable = {
-      purchase_quantity: 1,
-      purchase_unit: "piece",
+      purchase_quantity: servingSize,
+      purchase_unit: servingUnit,
       purchase_price: recipeCost,
     };
     return calculateComponentCost(

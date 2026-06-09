@@ -18,7 +18,6 @@ import {
   computeMenuComponentActual,
   computeMenuProfit,
   computePlatformPrices,
-  costPerPurchaseUnit,
 } from "../../utils/calc";
 import Modal from "../../components/Modal";
 import SearchInput from "../../components/SearchInput";
@@ -148,9 +147,8 @@ export default function MenusView() {
                   return (
                     <tr
                       key={m.id}
-                      className={`hover:bg-slate-50/60 transition ${
-                        editing?.id === m.id ? "bg-indigo-50/50" : ""
-                      }`}
+                      className={`hover:bg-slate-50/60 transition ${editing?.id === m.id ? "bg-indigo-50/50" : ""
+                        }`}
                     >
                       <td className="table-td text-slate-500">{idx + 1}</td>
                       <td className="table-td font-medium text-slate-800">{m.name}</td>
@@ -161,9 +159,8 @@ export default function MenusView() {
                         {fmtTHB(m.selling_price)}
                       </td>
                       <td
-                        className={`table-td text-right font-semibold ${
-                          positive ? "text-emerald-600" : "text-rose-600"
-                        }`}
+                        className={`table-td text-right font-semibold ${positive ? "text-emerald-600" : "text-rose-600"
+                          }`}
                       >
                         <span className="inline-flex items-center gap-1">
                           {positive ? (
@@ -175,9 +172,8 @@ export default function MenusView() {
                         </span>
                       </td>
                       <td
-                        className={`table-td text-right ${
-                          positive ? "text-emerald-600" : "text-rose-600"
-                        }`}
+                        className={`table-td text-right ${positive ? "text-emerald-600" : "text-rose-600"
+                          }`}
                       >
                         {fmtPct(margin)}
                       </td>
@@ -386,8 +382,8 @@ function OverviewModal({
                 <th className="table-th">Type</th>
                 <th className="table-th text-right">Usage Qty</th>
                 <th className="table-th">Unit</th>
-                <th className="table-th text-right">Base Cost</th>
-                <th className="table-th text-right">actual_price</th>
+                <th className="table-th text-right">Cost per Unit</th>
+                <th className="table-th text-right">Subtotal Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -403,23 +399,16 @@ function OverviewModal({
                   const rec = recipes.find((x) => x.id === c.target_id);
                   const pkg = packages.find((x) => x.id === c.target_id);
                   const name = ing?.name || rec?.name || pkg?.name || "(removed)";
-                  const base =
-                    ing || rec
-                      ? costPerPurchaseUnit(
-                          ing || {
-                            purchase_quantity: 1,
-                            purchase_unit: "piece",
-                            purchase_price: recipeTotalForOverview(rec!, ingredients),
-                          },
-                        )
-                      : costPerPurchaseUnit(pkg!);
                   // Prefer the stored actual_price; fall back to a live recompute
                   // so the breakdown is never empty if a component slipped
                   // through without a denormalized price.
-                  const unitCost =
+                  const subtotalCost =
                     toNumber(c.actual_price, 0) > 0
                       ? toNumber(c.actual_price, 0)
                       : computeMenuComponentActual(c, ingredients, recipes, packages);
+                  const qty = c.usage_quantity || 0;
+                  const costPerUnit = qty > 0 ? subtotalCost / qty : computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages);
+
                   return (
                     <tr key={c.id} className="hover:bg-slate-50/60">
                       <td className="table-td text-slate-500">{idx + 1}</td>
@@ -432,10 +421,10 @@ function OverviewModal({
                       <td className="table-td text-right">{fmt(c.usage_quantity, 2)}</td>
                       <td className="table-td">{c.usage_unit}</td>
                       <td className="table-td text-right text-slate-600">
-                        {fmtTHB(base)}
+                        {fmtTHB(costPerUnit)}
                       </td>
                       <td className="table-td text-right font-semibold text-indigo-600">
-                        {fmtTHB(unitCost)}
+                        {fmtTHB(qty > 0 ? subtotalCost : 0)}
                       </td>
                     </tr>
                   );
@@ -498,37 +487,6 @@ function PriceBlock({
       </div>
       {hint && <div className="text-[10px] text-slate-400 mt-1">{hint}</div>}
     </div>
-  );
-}
-
-// helper used by the Overview modal to compute a recipe's cost for the "base cost" column
-function recipeTotalForOverview(
-  recipe: import("../../types").Recipe,
-  ingredients: ReturnType<typeof useAppStore.getState>["ingredients"],
-): number {
-  return recipe.ingredients.reduce(
-    (sum, ri) =>
-      sum +
-      (() => {
-        const ing = ingredients.find((x) => x.id === ri.ingredient_id);
-        if (!ing || ing.purchase_quantity <= 0) return 0;
-        const cpu = ing.purchase_price / ing.purchase_quantity;
-        const conv = (() => {
-          if (ri.usage_unit === ing.purchase_unit) return ri.usage_quantity;
-          if (ri.usage_unit === "kg" && ing.purchase_unit === "gram") return ri.usage_quantity * 1000;
-          if (ri.usage_unit === "gram" && ing.purchase_unit === "kg") return ri.usage_quantity / 1000;
-          if (
-            (ri.usage_unit === "ml" || ri.usage_unit === "gram" || ri.usage_unit === "piece") &&
-            (ing.purchase_unit === "ml" || ing.purchase_unit === "gram" || ing.purchase_unit === "piece")
-          )
-            return ri.usage_quantity;
-          return 0;
-        })();
-        const raw = conv * cpu;
-        const y = (ri.yield || 100) / 100;
-        return y === 0 ? raw : raw / y;
-      })(),
-    0,
   );
 }
 

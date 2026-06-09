@@ -19,6 +19,7 @@ import {
   computeMenuCost,
   computePlatformPrices,
   refreshComponentActualPrices,
+  computeMenuComponentActual,
 } from "../../utils/calc";
 import SearchableSelect from "../../components/SearchableSelect";
 import SegmentedControl from "../../components/SegmentedControl";
@@ -462,6 +463,7 @@ export default function MenuForm({
           items={previewIngRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
           onUpdate={updateIng}
           onRemove={removeIng}
         />
@@ -471,6 +473,7 @@ export default function MenuForm({
           items={previewRecRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
           onUpdate={updateRec}
           onRemove={removeRec}
         />
@@ -480,6 +483,7 @@ export default function MenuForm({
           items={previewPkgRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
           onUpdate={updatePkg}
           onRemove={removePkg}
         />
@@ -557,6 +561,7 @@ interface ComponentListProps {
   items: MenuComponent[];
   nameLookup: (id: string) => string;
   costLookup: (comp: MenuComponent) => number;
+  unitCostLookup: (comp: MenuComponent) => number;
   onUpdate: (idx: number, patch: Partial<MenuComponent>) => void;
   onRemove: (idx: number) => void;
 }
@@ -567,6 +572,7 @@ function ComponentList({
   items,
   nameLookup,
   costLookup,
+  unitCostLookup,
   onUpdate,
   onRemove,
 }: ComponentListProps) {
@@ -581,15 +587,15 @@ function ComponentList({
       ) : (
         <div className="divide-y divide-slate-100">
           {items.map((c, idx) => {
-            const totalCost = costLookup(c);
+            const subtotalCost = costLookup(c);
             const qty = c.usage_quantity || 0;
-            const unitCost = qty > 0 ? totalCost / qty : 0;
+            const costPerUnit = qty > 0 ? subtotalCost / qty : unitCostLookup(c);
             return (
               <div
                 key={c.id}
                 className="grid grid-cols-12 gap-2 items-start px-3 py-2.5"
               >
-                <div className="col-span-12 md:col-span-3">
+                <div className="col-span-12 md:col-span-2">
                   <label className="md:hidden text-[10px] uppercase text-slate-400">Name</label>
                   <div className="text-sm font-medium text-slate-800 truncate py-2">
                     {nameLookup(c.target_id)}
@@ -643,12 +649,16 @@ function ComponentList({
                     </span>
                   </div>
                 </div>
-                <div className="col-span-10 md:col-span-3 text-right">
-                  <div className="text-[10px] uppercase text-slate-400">
-                    Price
+                <div className="col-span-5 md:col-span-2 text-right">
+                  <div className="text-[10px] uppercase text-slate-400">Cost per Unit</div>
+                  <div className="text-sm font-semibold text-slate-600 mt-1.5">
+                    {fmtTHB(costPerUnit)}
                   </div>
+                </div>
+                <div className="col-span-5 md:col-span-2 text-right">
+                  <div className="text-[10px] uppercase text-slate-400">Subtotal Cost</div>
                   <div className="text-sm font-semibold text-indigo-600 mt-1.5">
-                    {fmtTHB(unitCost)}
+                    {fmtTHB(qty > 0 ? subtotalCost : 0)}
                   </div>
                 </div>
                 <div className="col-span-2 md:col-span-1 text-right pt-1">
