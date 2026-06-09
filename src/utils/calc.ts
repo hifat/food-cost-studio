@@ -234,17 +234,17 @@ export const computeTargetSellingPrice = (costWithOverhead: number, foodCostPct:
 export const computePlatformPrices = (
   menu: Menu,
   setting: Setting,
+  adjustedBaseCost?: number,
 ): PlatformPrices => {
-  const cp = toNumber(menu.cost_price, 0);
+  const cp = adjustedBaseCost !== undefined ? adjustedBaseCost : toNumber(menu.cost_price, 0);
   const sp = toNumber(menu.selling_price, 0);
-  const otherPct = toNumber(setting.other_percentage, 0);
   const foodCostPct = toNumber(setting.food_cost_percentage, 1);
   const linemanPct = toNumber(setting.lineman_gp_percentage, 0);
   const grabPct = toNumber(setting.grab_gp_percentage, 0);
   const shopeePct = toNumber(setting.shopee_food_gp_percentage, 0);
   const vatPct = toNumber(setting.vat_percentage, 0);
 
-  const costWithOverhead = round2(cp + (cp * otherPct) / 100);
+  const costWithOverhead = cp;
 
   const targetSelling = computeTargetSellingPrice(costWithOverhead, foodCostPct);
 

@@ -175,8 +175,8 @@ export default function RecipesView() {
                   <th className="table-th">Menu / Recipe Name</th>
                   <th className="table-th w-32">Type</th>
                   <th className="table-th">Ingredients Used</th>
-                  <th className="table-th text-right">Usage Qty</th>
-                  <th className="table-th">Usage Unit</th>
+                  <th className="table-th text-right">Serving Size</th>
+                  <th className="table-th">Serving Unit</th>
                   <th className="table-th text-right">Raw Material Cost</th>
                   <th className="table-th text-right">Cost Per Unit</th>
                   <th className="table-th w-32 text-right">Actions</th>
@@ -185,9 +185,9 @@ export default function RecipesView() {
               <tbody>
                 {filtered.map((r, idx) => {
                   const total = computeRecipeTotalCost(r, ingredients);
-                  const usageQty = r.serving_size || 0;
-                  const usageUnit = r.serving_unit || "piece";
-                  const costPerUnit = usageQty > 0 ? total / usageQty : 0;
+                  const servingSize = r.serving_size || 0;
+                  const servingUnit = r.serving_unit || "piece";
+                  const costPerUnit = servingSize > 0 ? total / servingSize : 0;
                   const ingNames = r.ingredients
                     .map((ri) => {
                       const ing = ingredients.find((x) => x.id === ri.ingredient_id);
@@ -223,14 +223,14 @@ export default function RecipesView() {
                         </span>
                       </td>
                       <td className="table-td text-right text-slate-700">
-                        {fmt(usageQty, 2)}
+                        {fmt(servingSize, 2)}
                       </td>
-                      <td className="table-td text-slate-600">{usageUnit}</td>
+                      <td className="table-td text-slate-600">{servingUnit}</td>
                       <td className="table-td text-right font-medium text-slate-800">
-                        {fmtTHB(total)}
+                        {fmtTHB(round2(total + (total * toNumber(setting.other_percentage, 0)) / 100))}
                       </td>
                       <td className="table-td text-right text-slate-600">
-                        {fmtTHB(costPerUnit)} / {usageUnit}
+                        {fmtTHB(costPerUnit)} / {servingUnit}
                       </td>
                       <td className="table-td text-right">
                         <div className="inline-flex items-center gap-1">
@@ -332,30 +332,25 @@ function RecipeOverviewModal({
     recipe.ingredients.reduce((sum, ri) => sum + toNumber(ri.actual_price, 0), 0)
   );
 
-  const costWithOverhead = round2(
-    foodCost + (foodCost * toNumber(setting.other_percentage, 0)) / 100
-  );
+  const otherPct = toNumber(setting.other_percentage, 0);
+  const adjustedFoodCost = round2(foodCost + (foodCost * otherPct) / 100);
 
   return (
     <Modal
       open={!!recipe}
       onClose={onClose}
       title={`Overview · ${recipe.name}`}
-      subtitle="Recipe cost breakdown and overhead."
+      subtitle="Recipe cost breakdown with overhead adjustment."
       size="xl"
     >
-      <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-5">
-        <PriceBlock
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-3 mb-5">
+        <PriceBlockWithBadge
           label="Food Cost"
-          value={foodCost}
+          value={adjustedFoodCost}
+          badgeValue={foodCost}
+          badgeLabel="Raw Cost"
           tone="indigo"
-          hint="Sum of all ingredient actual_price"
-        />
-        <PriceBlock
-          label="Cost + Overhead"
-          value={costWithOverhead}
-          tone="amber"
-          hint={`+${setting.other_percentage}% other expenses`}
+          hint={`Base cost + ${otherPct.toFixed(2)}% other expenses`}
         />
       </div>
 
@@ -433,14 +428,18 @@ function RecipeOverviewModal({
   );
 }
 
-function PriceBlock({
+function PriceBlockWithBadge({
   label,
   value,
+  badgeValue,
+  badgeLabel,
   tone = "indigo",
   hint,
 }: {
   label: string;
   value: number;
+  badgeValue: number;
+  badgeLabel: string;
   tone?: "indigo" | "emerald" | "amber" | "rose" | "slate";
   hint?: string;
 }) {
@@ -461,6 +460,9 @@ function PriceBlock({
           className={`text-lg font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent`}
         >
           {fmtTHB(value)}
+        </span>
+        <span className="badge bg-slate-100 text-slate-600 border border-slate-200 text-xs">
+          {badgeLabel}: {fmtTHB(badgeValue)}
         </span>
       </div>
       {hint && <div className="text-[10px] text-slate-400 mt-1">{hint}</div>}

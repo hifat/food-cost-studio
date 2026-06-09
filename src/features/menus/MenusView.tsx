@@ -268,11 +268,6 @@ function OverviewModal({
   setting,
   onClose,
 }: OverviewModalProps) {
-  const prices = useMemo(
-    () => (menu ? computePlatformPrices(menu, setting) : null),
-    [menu, setting],
-  );
-
   if (!menu) {
     return (
       <Modal open={false} onClose={onClose} title="Menu Overview" size="lg">
@@ -280,6 +275,26 @@ function OverviewModal({
       </Modal>
     );
   }
+
+  const allComponents = [
+    ...menu.ingredients.map((c) => ({ c, kind: "ingredient" as const })),
+    ...menu.recipes.map((c) => ({ c, kind: "recipe" as const })),
+    ...menu.packages.map((c) => ({ c, kind: "package" as const })),
+  ];
+
+  // Base Food Cost = sum of all component actual_price values across all three buckets
+  const baseFoodCost = round2(
+    allComponents.reduce((sum, { c }) => sum + toNumber(c.actual_price, 0), 0),
+  );
+
+  // Adjusted Food Cost = Base Food Cost + (Base Food Cost * other_percentage / 100)
+  const otherPct = toNumber(setting.other_percentage, 0);
+  const adjustedFoodCost = round2(baseFoodCost + (baseFoodCost * otherPct) / 100);
+
+  const prices = useMemo(
+    () => computePlatformPrices(menu, setting, adjustedFoodCost),
+    [menu, setting, adjustedFoodCost],
+  );
 
   // Safe fallbacks: when `prices` is null (no menu), every value degrades to 0.
   const safePrices: NonNullable<typeof prices> = prices ?? {
@@ -295,23 +310,6 @@ function OverviewModal({
     vatShopee: 0,
   };
 
-  const allComponents = [
-    ...menu.ingredients.map((c) => ({ c, kind: "ingredient" as const })),
-    ...menu.recipes.map((c) => ({ c, kind: "recipe" as const })),
-    ...menu.packages.map((c) => ({ c, kind: "package" as const })),
-  ];
-
-  // Total Cost Price = sum of the denormalized actual_price stored on every
-  // component across the three buckets. This is the explicit aggregation
-  // the spec asks for; it matches `menu.cost_price` which the store keeps in
-  // sync via `refreshComponentActualPrices`.
-  const totalActualPrice = round2(
-    allComponents.reduce((sum, { c }) => sum + toNumber(c.actual_price, 0), 0),
-  );
-
-  // Food Cost value: prefer the explicit sum, fall back to the store value.
-  const foodCost = totalActualPrice > 0 ? totalActualPrice : toNumber(menu.cost_price, 0);
-
   return (
     <Modal
       open={!!menu}
@@ -321,19 +319,14 @@ function OverviewModal({
       size="xl"
     >
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-        <PriceBlock
+        <PriceBlockWithBadge
           label="Food Cost"
-          value={foodCost}
+          value={adjustedFoodCost}
+          badgeValue={baseFoodCost}
+          badgeLabel="Base Cost"
           vatValue={null}
           tone="indigo"
-          hint="Sum of all component actual_price"
-        />
-        <PriceBlock
-          label="Cost + Overhead"
-          value={safePrices.costWithOverhead}
-          vatValue={null}
-          tone="amber"
-          hint={`+${setting.other_percentage}% other expenses`}
+          hint={`+${otherPct.toFixed(2)}% overhead`}
         />
         <PriceBlock
           label="Target Selling Price"
@@ -434,10 +427,10 @@ function OverviewModal({
             <tfoot>
               <tr className="bg-slate-50/60">
                 <td colSpan={6} className="table-td text-right font-semibold text-slate-700">
-                  Total Cost Price
+                  Total Cost Price (Base)
                 </td>
                 <td className="table-td text-right font-bold text-emerald-600">
-                  {fmtTHB(totalActualPrice)}
+                  {fmtTHB(baseFoodCost)}
                 </td>
               </tr>
             </tfoot>
@@ -478,6 +471,55 @@ function PriceBlock({
           className={`text-lg font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent`}
         >
           {fmtTHB(value)}
+        </span>
+        {vatValue !== null && (
+          <span className="badge bg-slate-100 text-slate-600 border border-slate-200">
+            +VAT {fmtTHB(vatValue)}
+          </span>
+        )}
+      </div>
+      {hint && <div className="text-[10px] text-slate-400 mt-1">{hint}</div>}
+    </div>
+  );
+}
+
+function PriceBlockWithBadge({
+  label,
+  value,
+  badgeValue,
+  badgeLabel,
+  vatValue,
+  tone = "indigo",
+  hint,
+}: {
+  label: string;
+  value: number;
+  badgeValue: number;
+  badgeLabel: string;
+  vatValue: number | null;
+  tone?: "indigo" | "emerald" | "amber" | "rose" | "slate";
+  hint?: string;
+}) {
+  const tones: Record<string, string> = {
+    indigo: "from-indigo-500 to-indigo-600",
+    emerald: "from-emerald-500 to-emerald-600",
+    amber: "from-amber-500 to-amber-600",
+    rose: "from-rose-500 to-rose-600",
+    slate: "from-slate-500 to-slate-600",
+  };
+  return (
+    <div className="card p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span
+          className={`text-lg font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent`}
+        >
+          {fmtTHB(value)}
+        </span>
+        <span className="badge bg-slate-100 text-slate-600 border border-slate-200 text-xs">
+          {badgeLabel}: {fmtTHB(badgeValue)}
         </span>
         {vatValue !== null && (
           <span className="badge bg-slate-100 text-slate-600 border border-slate-200">
