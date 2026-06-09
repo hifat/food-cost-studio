@@ -8,7 +8,7 @@ import SearchableSelect from "../../components/SearchableSelect";
 
 interface RecipeFormProps {
   initial?: Recipe | null;
-  onSave: (data: { name: string; type: RecipeType; ingredients: RecipeIngredient[] }) => void;
+  onSave: (data: { name: string; type: RecipeType; serving_size: number; serving_unit: UsageUnit; ingredients: RecipeIngredient[] }) => void;
   onCancel?: () => void;
   showCancel?: boolean;
 }
@@ -23,6 +23,8 @@ export default function RecipeForm({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<RecipeType>(initial?.type ?? "FOOD");
+  const [servingSize, setServingSize] = useState<number>(initial?.serving_size ?? 1);
+  const [servingUnit, setServingUnit] = useState<UsageUnit>(initial?.serving_unit ?? "piece");
   const [rows, setRows] = useState<RecipeIngredient[]>(
     initial ? initial.ingredients.map((r) => ({ ...r })) : [],
   );
@@ -87,11 +89,13 @@ export default function RecipeForm({
       ...r,
       actual_price: computeRecipeIngredientActual(r, ingredients),
     }));
-    onSave({ name: trimmed, type, ingredients: computed });
+    onSave({ name: trimmed, type, serving_size: servingSize, serving_unit: servingUnit, ingredients: computed });
     if (!initial) {
       // Reset only when creating
       setName("");
       setType("FOOD");
+      setServingSize(1);
+      setServingUnit("piece");
       setRows([]);
     }
   };
@@ -100,10 +104,14 @@ export default function RecipeForm({
     if (initial) {
       setName(initial.name);
       setType(initial.type);
+      setServingSize(initial.serving_size ?? 1);
+      setServingUnit(initial.serving_unit ?? "piece");
       setRows(initial.ingredients.map((r) => ({ ...r })));
     } else {
       setName("");
       setType("FOOD");
+      setServingSize(1);
+      setServingUnit("piece");
       setRows([]);
     }
   };
@@ -157,6 +165,36 @@ export default function RecipeForm({
               <option key={t} value={t}>
                 {RECIPE_TYPE_LABELS[t]}
                 {t === "INGREDIENT" ? " (publishes cost)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Serving row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="label">Serving Size</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            value={servingSize}
+            onChange={(e) => setServingSize(Number(e.target.value) || 0)}
+            placeholder="e.g. 1"
+          />
+        </div>
+        <div>
+          <label className="label">Serving Unit</label>
+          <select
+            className="input"
+            value={servingUnit}
+            onChange={(e) => setServingUnit(e.target.value as UsageUnit)}
+          >
+            {USAGE_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
               </option>
             ))}
           </select>

@@ -92,7 +92,7 @@ export default function MenuForm({
         value: r.id,
         label: r.name,
         subLabel: `Recipe • ${r.ingredients.length} ingredients`,
-        unit: "piece" as UsageUnit,
+        unit: (r.serving_unit || "piece") as UsageUnit,
       })),
     [availableRecipes],
   );
@@ -366,7 +366,7 @@ export default function MenuForm({
             <SegmentedControl
               size="sm"
               value={addTab}
-              onChange={setAddTab}
+              onChange={(val) => setAddTab(val as ComponentBucket)}
               options={[
                 {
                   value: "ingredient",
@@ -581,7 +581,9 @@ function ComponentList({
       ) : (
         <div className="divide-y divide-slate-100">
           {items.map((c, idx) => {
-            const cost = costLookup(c);
+            const totalCost = costLookup(c);
+            const qty = c.usage_quantity || 0;
+            const unitCost = qty > 0 ? totalCost / qty : 0;
             return (
               <div
                 key={c.id}
@@ -643,10 +645,10 @@ function ComponentList({
                 </div>
                 <div className="col-span-10 md:col-span-3 text-right">
                   <div className="text-[10px] uppercase text-slate-400">
-                    Actual Price
+                    Price
                   </div>
                   <div className="text-sm font-semibold text-indigo-600 mt-1.5">
-                    {fmtTHB(cost)}
+                    {fmtTHB(unitCost)}
                   </div>
                 </div>
                 <div className="col-span-2 md:col-span-1 text-right pt-1">

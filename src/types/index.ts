@@ -42,6 +42,8 @@ export interface Recipe {
   id: string;
   name: string;
   type: RecipeType;
+  serving_size: number;
+  serving_unit: UsageUnit;
   ingredients: RecipeIngredient[];
 }
 

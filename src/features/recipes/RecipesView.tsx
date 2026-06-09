@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Pencil, Trash2, ChefHat, Soup, Cake, Cookie, Beaker, BarChart3 } from "lucide-react";
 import { useAppStore } from "../../store";
-import type { Recipe, RecipeType } from "../../types";
+import type { Recipe, RecipeType, UsageUnit } from "../../types";
 import { RECIPE_TYPE_LABELS } from "../../types";
 import { fmt, fmtTHB, computeRecipeTotalCost, calculateBaseUnitPrice, convertUnit, round2, toNumber } from "../../utils/calc";
 import { getIngredientById } from "../../utils/ingredient";
@@ -66,6 +66,8 @@ export default function RecipesView() {
   const handleSave = (data: {
     name: string;
     type: RecipeType;
+    serving_size: number;
+    serving_unit: UsageUnit;
     ingredients: Recipe["ingredients"];
   }) => {
     if (editing) {
@@ -183,8 +185,9 @@ export default function RecipesView() {
               <tbody>
                 {filtered.map((r, idx) => {
                   const total = computeRecipeTotalCost(r, ingredients);
-                  const usageQty = 1;
-                  const usageUnit = "piece";
+                  const usageQty = r.serving_size || 0;
+                  const usageUnit = r.serving_unit || "piece";
+                  const costPerUnit = usageQty > 0 ? total / usageQty : 0;
                   const ingNames = r.ingredients
                     .map((ri) => {
                       const ing = ingredients.find((x) => x.id === ri.ingredient_id);
@@ -227,7 +230,7 @@ export default function RecipesView() {
                         {fmtTHB(total)}
                       </td>
                       <td className="table-td text-right text-slate-600">
-                        {fmtTHB(total)}
+                        {fmtTHB(costPerUnit)} / {usageUnit}
                       </td>
                       <td className="table-td text-right">
                         <div className="inline-flex items-center gap-1">
