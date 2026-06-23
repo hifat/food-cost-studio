@@ -8,6 +8,8 @@ import {
   Layers,
   ChefHat,
   Package as PackageIcon,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { Menu, MenuComponent, UsageUnit } from "../../types";
 import { USAGE_UNITS } from "../../types";
@@ -161,10 +163,19 @@ export default function MenuForm({
     setIngRows((prev) => prev.filter((_, i) => i !== idx));
   const removeRec = (idx: number) =>
     setRecRows((prev) => prev.filter((_, i) => i !== idx));
-  const removePkg = (idx: number) =>
-    setPkgRows((prev) => prev.filter((_, i) => i !== idx));
+  const removePkg = (idx: number) => {
+    setPkgRows(pkgRows.filter((_, i) => i !== idx));
+  };
 
-  // --- computed preview ---
+  const moveItem = <T,>(arr: T[], idx: number, dir: "up" | "down"): T[] => {
+    const next = [...arr];
+    if (dir === "up" && idx > 0) {
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    } else if (dir === "down" && idx < next.length - 1) {
+      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+    }
+    return next;
+  }; // --- computed preview ---
   // For the live preview, recompute every row's actual_price on the fly so
   // the numbers update instantly as the user types. This is independent of
   // what's stored on each component (which is the persisted truth).
@@ -466,6 +477,7 @@ export default function MenuForm({
           unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updateIng}
           onRemove={removeIng}
+          onMove={(idx, dir) => setIngRows((prev) => moveItem(prev, idx, dir))}
         />
         <ComponentList
           title="Recipes"
@@ -476,6 +488,7 @@ export default function MenuForm({
           unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updateRec}
           onRemove={removeRec}
+          onMove={(idx, dir) => setRecRows((prev) => moveItem(prev, idx, dir))}
         />
         <ComponentList
           title="Packages"
@@ -486,6 +499,7 @@ export default function MenuForm({
           unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updatePkg}
           onRemove={removePkg}
+          onMove={(idx, dir) => setPkgRows((prev) => moveItem(prev, idx, dir))}
         />
       </div>
 
@@ -564,6 +578,7 @@ interface ComponentListProps {
   unitCostLookup: (comp: MenuComponent) => number;
   onUpdate: (idx: number, patch: Partial<MenuComponent>) => void;
   onRemove: (idx: number) => void;
+  onMove: (idx: number, dir: "up" | "down") => void;
 }
 
 function ComponentList({
@@ -575,6 +590,7 @@ function ComponentList({
   unitCostLookup,
   onUpdate,
   onRemove,
+  onMove,
 }: ComponentListProps) {
   return (
     <div className="border-t border-slate-200 first:border-t-0">
@@ -661,7 +677,7 @@ function ComponentList({
                     {fmtTHB(qty > 0 ? subtotalCost : 0)}
                   </div>
                 </div>
-                <div className="col-span-2 md:col-span-1 text-right pt-1">
+                <div className="col-span-2 md:col-span-1 flex flex-col items-end gap-1 pt-1">
                   <button
                     type="button"
                     onClick={() => onRemove(idx)}
@@ -670,6 +686,24 @@ function ComponentList({
                   >
                     <X className="w-4 h-4" />
                   </button>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onMove(idx, "up")}
+                      disabled={idx === 0}
+                      className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMove(idx, "down")}
+                      disabled={idx === items.length - 1}
+                      className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { X, Plus, ChefHat, AlertCircle, Save, RotateCcw } from "lucide-react";
+import { X, Plus, Save, RotateCcw, AlertCircle, ChevronUp, ChevronDown, ChefHat } from "lucide-react";
 import type { Recipe, RecipeIngredient, UsageUnit, RecipeType } from "../../types";
 import { USAGE_UNITS, RECIPE_TYPE_LABELS } from "../../types";
 import { fmt, fmtTHB, computeRecipeIngredientActual } from "../../utils/calc";
@@ -72,7 +72,17 @@ export default function RecipeForm({
   };
 
   const removeRow = (idx: number) => {
-    setRows((prev) => prev.filter((_, i) => i !== idx));
+    setRows(rows.filter((_, i) => i !== idx));
+  };
+
+  const moveRow = (idx: number, dir: "up" | "down") => {
+    const next = [...rows];
+    if (dir === "up" && idx > 0) {
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    } else if (dir === "down" && idx < next.length - 1) {
+      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+    }
+    setRows(next);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -334,7 +344,7 @@ export default function RecipeForm({
                       {fmtTHB(cost)}
                     </div>
                   </div>
-                  <div className="col-span-2 md:col-span-1 text-right pt-1">
+                  <div className="col-span-2 md:col-span-1 flex flex-col items-end gap-1 pt-1">
                     <button
                       type="button"
                       onClick={() => removeRow(idx)}
@@ -343,6 +353,24 @@ export default function RecipeForm({
                     >
                       <X className="w-4 h-4" />
                     </button>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveRow(idx, "up")}
+                        disabled={idx === 0}
+                        className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveRow(idx, "down")}
+                        disabled={idx === rows.length - 1}
+                        className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
