@@ -5,12 +5,13 @@ import {
   Save,
   RotateCcw,
   UtensilsCrossed,
+  GripVertical,
   Layers,
   ChefHat,
-  Package as PackageIcon,
-  ChevronUp,
-  ChevronDown,
+  PackageIcon,
 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import type { DropResult } from "@hello-pangea/dnd";
 import type { Menu, MenuComponent, UsageUnit } from "../../types";
 import { USAGE_UNITS } from "../../types";
 import { useAppStore, newMenuComponent } from "../../store";
@@ -167,14 +168,26 @@ export default function MenuForm({
     setPkgRows(pkgRows.filter((_, i) => i !== idx));
   };
 
-  const moveItem = <T,>(arr: T[], idx: number, dir: "up" | "down"): T[] => {
-    const next = [...arr];
-    if (dir === "up" && idx > 0) {
-      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-    } else if (dir === "down" && idx < next.length - 1) {
-      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+
+    if (source.droppableId === "ingredients-list") {
+      const next = [...ingRows];
+      const [removed] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, removed);
+      setIngRows(next);
+    } else if (source.droppableId === "recipes-list") {
+      const next = [...recRows];
+      const [removed] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, removed);
+      setRecRows(next);
+    } else if (source.droppableId === "packages-list") {
+      const next = [...pkgRows];
+      const [removed] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, removed);
+      setPkgRows(next);
     }
-    return next;
   }; // --- computed preview ---
   // For the live preview, recompute every row's actual_price on the fly so
   // the numbers update instantly as the user types. This is independent of
@@ -467,40 +480,42 @@ export default function MenuForm({
       </div>
 
       {/* Components list — no `overflow-hidden` so dropdowns can escape */}
-      <div className="border border-slate-200 rounded-xl mb-4">
-        <ComponentList
-          title="Ingredients"
-          icon={<Layers className="w-3.5 h-3.5" />}
-          items={previewIngRows}
-          nameLookup={targetName}
-          costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
-          onUpdate={updateIng}
-          onRemove={removeIng}
-          onMove={(idx, dir) => setIngRows((prev) => moveItem(prev, idx, dir))}
-        />
-        <ComponentList
-          title="Recipes"
-          icon={<ChefHat className="w-3.5 h-3.5" />}
-          items={previewRecRows}
-          nameLookup={targetName}
-          costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
-          onUpdate={updateRec}
-          onRemove={removeRec}
-          onMove={(idx, dir) => setRecRows((prev) => moveItem(prev, idx, dir))}
-        />
-        <ComponentList
-          title="Packages"
-          icon={<PackageIcon className="w-3.5 h-3.5" />}
-          items={previewPkgRows}
-          nameLookup={targetName}
-          costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
-          onUpdate={updatePkg}
-          onRemove={removePkg}
-          onMove={(idx, dir) => setPkgRows((prev) => moveItem(prev, idx, dir))}
-        />
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <ComponentList
+            title="Ingredients"
+            icon={<Layers className="w-3.5 h-3.5" />}
+            droppableId="ingredients-list"
+            items={previewIngRows}
+            nameLookup={targetName}
+            costLookup={(c) => c.actual_price}
+            unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
+            onUpdate={updateIng}
+            onRemove={removeIng}
+          />
+          <ComponentList
+            title="Recipes"
+            icon={<ChefHat className="w-3.5 h-3.5" />}
+            droppableId="recipes-list"
+            items={previewRecRows}
+            nameLookup={targetName}
+            costLookup={(c) => c.actual_price}
+            unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
+            onUpdate={updateRec}
+            onRemove={removeRec}
+          />
+          <ComponentList
+            title="Packages"
+            icon={<PackageIcon className="w-3.5 h-3.5" />}
+            droppableId="packages-list"
+            items={previewPkgRows}
+            nameLookup={targetName}
+            costLookup={(c) => c.actual_price}
+            unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
+            onUpdate={updatePkg}
+            onRemove={removePkg}
+          />
+        </DragDropContext>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -572,25 +587,25 @@ function StatBlock({
 interface ComponentListProps {
   title: string;
   icon: React.ReactNode;
+  droppableId: string;
   items: MenuComponent[];
   nameLookup: (id: string) => string;
   costLookup: (comp: MenuComponent) => number;
   unitCostLookup: (comp: MenuComponent) => number;
   onUpdate: (idx: number, patch: Partial<MenuComponent>) => void;
   onRemove: (idx: number) => void;
-  onMove: (idx: number, dir: "up" | "down") => void;
 }
 
 function ComponentList({
   title,
   icon,
+  droppableId,
   items,
   nameLookup,
   costLookup,
   unitCostLookup,
   onUpdate,
   onRemove,
-  onMove,
 }: ComponentListProps) {
   return (
     <div className="border-t border-slate-200 first:border-t-0">
@@ -601,114 +616,115 @@ function ComponentList({
       {items.length === 0 ? (
         <div className="px-4 py-3 text-sm text-slate-400 italic">None added</div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {items.map((c, idx) => {
-            const subtotalCost = costLookup(c);
-            const qty = c.usage_quantity || 0;
-            const costPerUnit = qty > 0 ? subtotalCost / qty : unitCostLookup(c);
-            return (
-              <div
-                key={c.id}
-                className="grid grid-cols-12 gap-2 items-start px-3 py-2.5"
-              >
-                <div className="col-span-12 md:col-span-2">
-                  <label className="md:hidden text-[10px] uppercase text-slate-400">Name</label>
-                  <div className="text-sm font-medium text-slate-800 truncate py-2">
-                    {nameLookup(c.target_id)}
-                  </div>
-                </div>
-                <div className="col-span-4 md:col-span-2">
-                  <label className="text-[10px] uppercase text-slate-400">Qty</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    className="input"
-                    value={c.usage_quantity}
-                    onChange={(e) =>
-                      onUpdate(idx, { usage_quantity: Number(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-                <div className="col-span-4 md:col-span-1">
-                  <label className="text-[10px] uppercase text-slate-400">Unit</label>
-                  <select
-                    className="input"
-                    value={c.usage_unit}
-                    onChange={(e) =>
-                      onUpdate(idx, { usage_unit: e.target.value as UsageUnit })
-                    }
-                  >
-                    {USAGE_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-4 md:col-span-2">
-                  <label className="text-[10px] uppercase text-slate-400">Yield (%)</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      max="100"
-                      className="input pr-7"
-                      value={c.yield}
-                      onChange={(e) =>
-                        onUpdate(idx, { yield: Number(e.target.value) || 0 })
-                      }
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
-                      %
-                    </span>
-                  </div>
-                </div>
-                <div className="col-span-5 md:col-span-2 text-right">
-                  <div className="text-[10px] uppercase text-slate-400">Cost per Unit</div>
-                  <div className="text-sm font-semibold text-slate-600 mt-1.5">
-                    {fmtTHB(costPerUnit)}
-                  </div>
-                </div>
-                <div className="col-span-5 md:col-span-2 text-right">
-                  <div className="text-[10px] uppercase text-slate-400">Subtotal Cost</div>
-                  <div className="text-sm font-semibold text-indigo-600 mt-1.5">
-                    {fmtTHB(qty > 0 ? subtotalCost : 0)}
-                  </div>
-                </div>
-                <div className="col-span-2 md:col-span-1 flex flex-col items-end gap-1 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => onRemove(idx)}
-                    className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                    title="Remove"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onMove(idx, "up")}
-                      disabled={idx === 0}
-                      className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onMove(idx, "down")}
-                      disabled={idx === items.length - 1}
-                      className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <Droppable droppableId={droppableId}>
+          {(provided) => (
+            <div
+              className="divide-y divide-slate-100"
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+            >
+              {items.map((c, idx) => {
+                const subtotalCost = costLookup(c);
+                const qty = c.usage_quantity || 0;
+                const costPerUnit = qty > 0 ? subtotalCost / qty : unitCostLookup(c);
+                return (
+                  <Draggable key={c.id} draggableId={c.id} index={idx}>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="grid grid-cols-12 gap-2 items-start px-3 py-2.5 bg-white"
+                      >
+                        <div className="col-span-12 md:col-span-2 flex items-start gap-2">
+                          <div {...provided.dragHandleProps} className="mt-2 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0">
+                            <GripVertical className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <label className="md:hidden text-[10px] uppercase text-slate-400">Name</label>
+                            <div className="text-sm font-medium text-slate-800 truncate py-2">
+                              {nameLookup(c.target_id)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <label className="text-[10px] uppercase text-slate-400">Qty</label>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            className="input"
+                            value={c.usage_quantity}
+                            onChange={(e) =>
+                              onUpdate(idx, { usage_quantity: Number(e.target.value) || 0 })
+                            }
+                          />
+                        </div>
+                        <div className="col-span-4 md:col-span-1">
+                          <label className="text-[10px] uppercase text-slate-400">Unit</label>
+                          <select
+                            className="input"
+                            value={c.usage_unit}
+                            onChange={(e) =>
+                              onUpdate(idx, { usage_unit: e.target.value as UsageUnit })
+                            }
+                          >
+                            {USAGE_UNITS.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <label className="text-[10px] uppercase text-slate-400">Yield (%)</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="1"
+                              min="1"
+                              max="100"
+                              className="input pr-7"
+                              value={c.yield}
+                              onChange={(e) =>
+                                onUpdate(idx, { yield: Number(e.target.value) || 0 })
+                              }
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">
+                              %
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-5 md:col-span-2 text-right">
+                          <div className="text-[10px] uppercase text-slate-400">Cost per Unit</div>
+                          <div className="text-sm font-semibold text-slate-600 mt-1.5">
+                            {fmtTHB(costPerUnit)}
+                          </div>
+                        </div>
+                        <div className="col-span-5 md:col-span-2 text-right">
+                          <div className="text-[10px] uppercase text-slate-400">Subtotal Cost</div>
+                          <div className="text-sm font-semibold text-indigo-600 mt-1.5">
+                            {fmtTHB(qty > 0 ? subtotalCost : 0)}
+                          </div>
+                        </div>
+                        <div className="col-span-2 md:col-span-1 text-right pt-1">
+                          <button
+                            type="button"
+                            onClick={() => onRemove(idx)}
+                            className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                            title="Remove"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                );
+              })}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
       )}
     </div>
   );

@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { X, Plus, Save, RotateCcw, AlertCircle, ChevronUp, ChevronDown, ChefHat } from "lucide-react";
+import { X, Plus, Save, RotateCcw, AlertCircle, ChefHat, GripVertical } from "lucide-react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import type { DropResult } from "@hello-pangea/dnd";
 import type { Recipe, RecipeIngredient, UsageUnit, RecipeType } from "../../types";
 import { USAGE_UNITS, RECIPE_TYPE_LABELS } from "../../types";
 import { fmt, fmtTHB, computeRecipeIngredientActual } from "../../utils/calc";
@@ -75,13 +77,11 @@ export default function RecipeForm({
     setRows(rows.filter((_, i) => i !== idx));
   };
 
-  const moveRow = (idx: number, dir: "up" | "down") => {
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
     const next = [...rows];
-    if (dir === "up" && idx > 0) {
-      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-    } else if (dir === "down" && idx < next.length - 1) {
-      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
-    }
+    const [removed] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, removed);
     setRows(next);
   };
 
@@ -271,23 +271,38 @@ export default function RecipeForm({
             Pick an ingredient from the dropdown below to start composing this recipe.
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {rows.map((r, idx) => {
-              const ing = ingredients.find((x) => x.id === r.ingredient_id);
-              const cost = computeRecipeIngredientActual(r, ingredients);
-              return (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="ingredients-list">
+              {(provided) => (
                 <div
-                  key={`${r.ingredient_id}-${idx}`}
-                  className="grid grid-cols-12 gap-2 items-start px-3 py-2.5"
+                  className="divide-y divide-slate-100"
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
                 >
-                  <div className="col-span-12 md:col-span-3">
-                    <label className="md:hidden text-[10px] uppercase text-slate-400">Ingredient</label>
-                    <div className="text-sm font-medium text-slate-800 truncate py-2">
-                      {ing ? ing.name : (
-                        <em className="text-rose-500">Removed ingredient</em>
-                      )}
-                    </div>
-                  </div>
+                  {rows.map((r, idx) => {
+                    const ing = ingredients.find((x) => x.id === r.ingredient_id);
+                    const cost = computeRecipeIngredientActual(r, ingredients);
+                    return (
+                      <Draggable key={r.ingredient_id} draggableId={r.ingredient_id} index={idx}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="grid grid-cols-12 gap-2 items-start px-3 py-2.5 bg-white"
+                          >
+                            <div className="col-span-12 md:col-span-3 flex items-start gap-2">
+                              <div {...provided.dragHandleProps} className="mt-2 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0">
+                                <GripVertical className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <label className="md:hidden text-[10px] uppercase text-slate-400">Ingredient</label>
+                                <div className="text-sm font-medium text-slate-800 truncate py-2">
+                                  {ing ? ing.name : (
+                                    <em className="text-rose-500">Removed ingredient</em>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                   <div className="col-span-4 md:col-span-2">
                     <label className="text-[10px] uppercase text-slate-400">Qty</label>
                     <input
@@ -344,38 +359,26 @@ export default function RecipeForm({
                       {fmtTHB(cost)}
                     </div>
                   </div>
-                  <div className="col-span-2 md:col-span-1 flex flex-col items-end gap-1 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(idx)}
-                      className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                      title="Remove"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => moveRow(idx, "up")}
-                        disabled={idx === 0}
-                        className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
-                      >
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveRow(idx, "down")}
-                        disabled={idx === rows.length - 1}
-                        className="p-1 rounded text-slate-400 hover:text-indigo-600 disabled:opacity-30"
-                      >
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                            <div className="col-span-2 md:col-span-1 text-right pt-1">
+                              <button
+                                type="button"
+                                onClick={() => removeRow(idx)}
+                                className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
 
         {/* Add ingredient picker — `relative` here so the SearchableSelect's
