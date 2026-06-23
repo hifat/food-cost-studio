@@ -152,10 +152,13 @@ export default function RecipeForm({
             Live total
           </div>
           <div className="text-lg font-bold text-indigo-600">{fmtTHB(total)}</div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">
-            Estimated Total with Overhead
-          </div>
-          <div className="text-sm font-semibold text-indigo-500">{fmtTHB(estimatedTotalWithOverhead)}</div>
+          {includeOverhead && (
+            <div className="mt-1.5 flex justify-end">
+              <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                With Overhead: {fmtTHB(estimatedTotalWithOverhead)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
