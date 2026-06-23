@@ -12,7 +12,7 @@ import type {
 } from "../types";
 import { computeRecipeTotalCost, computeRecipeIngredientActual, computeMenuCost, round2, toNumber, refreshComponentActualPrices } from "../utils/calc";
 
-const uid = (prefix = "id") =>
+export const uid = (prefix = "id") =>
   `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 const DEFAULT_SETTING: Setting = {

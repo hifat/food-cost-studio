@@ -6,8 +6,9 @@ import {
   TrendingUp,
   TrendingDown,
   UtensilsCrossed,
+  Copy,
 } from "lucide-react";
-import { useAppStore } from "../../store";
+import { useAppStore, uid } from "../../store";
 import type { Menu } from "../../types";
 import {
   fmt,
@@ -39,6 +40,16 @@ export default function MenusView() {
   const [confirmDelete, setConfirmDelete] = useState<Menu | null>(null);
   const [overview, setOverview] = useState<Menu | null>(null);
   const formAnchorRef = useRef<HTMLDivElement>(null);
+
+  const handleDuplicate = (m: Menu) => {
+    addMenu({
+      name: m.name + " (Copy)",
+      selling_price: m.selling_price,
+      ingredients: m.ingredients.map(c => ({ ...c, id: uid("cmp") })),
+      recipes: m.recipes.map(c => ({ ...c, id: uid("cmp") })),
+      packages: m.packages.map(c => ({ ...c, id: uid("cmp") })),
+    });
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -191,6 +202,13 @@ export default function MenusView() {
                             title="Edit"
                           >
                             <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicate(m)}
+                            className="p-1.5 rounded-md text-slate-500 hover:text-sky-600 hover:bg-sky-50"
+                            title="Duplicate"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setConfirmDelete(m)}

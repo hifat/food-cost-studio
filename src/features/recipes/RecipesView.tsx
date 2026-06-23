@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { Pencil, Trash2, ChefHat, Soup, Cake, Cookie, Beaker, BarChart3 } from "lucide-react";
+import { Pencil, Trash2, ChefHat, Soup, Cake, Cookie, Beaker, BarChart3, Copy } from "lucide-react";
 import { useAppStore } from "../../store";
 import type { Recipe, RecipeType, UsageUnit } from "../../types";
 import { RECIPE_TYPE_LABELS } from "../../types";
@@ -35,6 +35,17 @@ export default function RecipesView() {
   const [overview, setOverview] = useState<Recipe | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Recipe | null>(null);
   const formAnchorRef = useRef<HTMLDivElement>(null);
+
+  const handleDuplicate = (r: Recipe) => {
+    addRecipe({
+      name: r.name + " (Copy)",
+      type: r.type,
+      serving_size: r.serving_size,
+      serving_unit: r.serving_unit,
+      include_overhead: r.include_overhead,
+      ingredients: r.ingredients.map(ri => ({ ...ri })),
+    });
+  };
 
   // Counts per type for badges
   const counts = useMemo(() => {
@@ -253,6 +264,13 @@ export default function RecipesView() {
                             title="Edit"
                           >
                             <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicate(r)}
+                            className="p-1.5 rounded-md text-slate-500 hover:text-sky-600 hover:bg-sky-50"
+                            title="Duplicate"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setConfirmDelete(r)}
