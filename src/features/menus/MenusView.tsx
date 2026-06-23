@@ -15,7 +15,6 @@ import {
   fmtPct,
   toNumber,
   round2,
-  computeMenuComponentActual,
   computeMenuProfit,
   computePlatformPrices,
 } from "../../utils/calc";
@@ -386,15 +385,9 @@ function OverviewModal({
                   const rec = recipes.find((x) => x.id === c.target_id);
                   const pkg = packages.find((x) => x.id === c.target_id);
                   const name = ing?.name || rec?.name || pkg?.name || "(removed)";
-                  // Prefer the stored actual_price; fall back to a live recompute
-                  // so the breakdown is never empty if a component slipped
-                  // through without a denormalized price.
-                  const subtotalCost =
-                    toNumber(c.actual_price, 0) > 0
-                      ? toNumber(c.actual_price, 0)
-                      : computeMenuComponentActual(c, ingredients, recipes, packages, setting);
+                  const subtotalCost = toNumber(c.actual_price, 0);
                   const qty = c.usage_quantity || 0;
-                  const costPerUnit = qty > 0 ? subtotalCost / qty : computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting);
+                  const costPerUnit = qty > 0 ? subtotalCost / qty : 0;
 
                   return (
                     <tr key={c.id} className="hover:bg-slate-50/60">

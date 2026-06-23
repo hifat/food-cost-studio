@@ -10,7 +10,7 @@ import type {
   RecipeIngredient,
   MenuComponent,
 } from "../types";
-import { computeRecipeTotalCost, computeMenuCost, round2, toNumber, refreshComponentActualPrices } from "../utils/calc";
+import { computeRecipeTotalCost, computeRecipeIngredientActual, computeMenuCost, round2, toNumber, refreshComponentActualPrices } from "../utils/calc";
 
 const uid = (prefix = "id") =>
   `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -123,6 +123,7 @@ const recalculateAll = (state: {
   recipes: Recipe[];
   packages: Package[];
   menus: Menu[];
+  setting: Setting;
 }): {
   ingredients: Ingredient[];
   recipes: Recipe[];
@@ -131,16 +132,23 @@ const recalculateAll = (state: {
   // 1. Recompute each recipe's ingredient actual_price
   const recipes = state.recipes.map((r) => ({
     ...r,
-    ingredients: r.ingredients.map((ri) => ({ ...ri })),
+    ingredients: r.ingredients.map((ri) => ({
+      ...ri,
+      actual_price: computeRecipeIngredientActual(ri, state.ingredients)
+    })),
   }));
 
   // 2. Sync ingredients derived from recipes of type "INGREDIENT"
   const ingredients = syncRecipeIngredients(recipes, state.ingredients);
 
-  // 3. Recompute menu cost_price based on freshest data
+  // 3. Recompute menu component actual_prices based on freshest data
   const menus = state.menus.map((m) => {
-    const cost = computeMenuCost(m);
-    return { ...m, cost_price: cost };
+    const m_ingredients = refreshComponentActualPrices(m.ingredients, ingredients, recipes, state.packages, state.setting);
+    const m_recipes = refreshComponentActualPrices(m.recipes, ingredients, recipes, state.packages, state.setting);
+    const m_packages = refreshComponentActualPrices(m.packages, ingredients, recipes, state.packages, state.setting);
+    
+    const merged = { ...m, ingredients: m_ingredients, recipes: m_recipes, packages: m_packages };
+    return { ...merged, cost_price: computeMenuCost(merged) };
   });
 
   return { ingredients, recipes, menus };
@@ -166,6 +174,7 @@ export const useAppStore = create<AppState>()(
             recipes: s.recipes,
             packages: s.packages,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -185,6 +194,7 @@ export const useAppStore = create<AppState>()(
             recipes: s.recipes,
             packages: s.packages,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -211,6 +221,7 @@ export const useAppStore = create<AppState>()(
             recipes: nextRecipes,
             packages: s.packages,
             menus: nextMenus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -228,6 +239,7 @@ export const useAppStore = create<AppState>()(
             recipes: [...s.recipes, recipe],
             packages: s.packages,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -254,6 +266,7 @@ export const useAppStore = create<AppState>()(
             recipes: nextRecipes,
             packages: s.packages,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -278,6 +291,7 @@ export const useAppStore = create<AppState>()(
             recipes: nextRecipes,
             packages: s.packages,
             menus: nextMenus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
@@ -310,6 +324,7 @@ export const useAppStore = create<AppState>()(
             recipes: s.recipes,
             packages: nextPkgs,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             packages: nextPkgs,
@@ -332,6 +347,7 @@ export const useAppStore = create<AppState>()(
             recipes: s.recipes,
             packages: nextPkgs,
             menus: nextMenus,
+            setting: s.setting,
           });
           return {
             packages: nextPkgs,
@@ -351,18 +367,21 @@ export const useAppStore = create<AppState>()(
             s.ingredients,
             s.recipes,
             s.packages,
+            s.setting,
           );
           const recipes = refreshComponentActualPrices(
             data.recipes,
             s.ingredients,
             s.recipes,
             s.packages,
+            s.setting,
           );
           const packages = refreshComponentActualPrices(
             data.packages,
             s.ingredients,
             s.recipes,
             s.packages,
+            s.setting,
           );
           const built: Menu = {
             id: uid("menu"),
@@ -398,18 +417,21 @@ export const useAppStore = create<AppState>()(
               s.ingredients,
               s.recipes,
               s.packages,
+              s.setting,
             );
             merged.recipes = refreshComponentActualPrices(
               merged.recipes,
               s.ingredients,
               s.recipes,
               s.packages,
+              s.setting,
             );
             merged.packages = refreshComponentActualPrices(
               merged.packages,
               s.ingredients,
               s.recipes,
               s.packages,
+              s.setting,
             );
             const cost = computeMenuCost(merged);
             return { ...merged, cost_price: cost };
@@ -423,7 +445,22 @@ export const useAppStore = create<AppState>()(
       },
 
       updateSetting: (patch) => {
-        set((s) => ({ setting: { ...s.setting, ...patch } }));
+        set((s) => {
+          const newSetting = { ...s.setting, ...patch };
+          const merged = recalculateAll({
+            ingredients: s.ingredients,
+            recipes: s.recipes,
+            packages: s.packages,
+            menus: s.menus,
+            setting: newSetting,
+          });
+          return {
+            setting: newSetting,
+            ingredients: merged.ingredients,
+            recipes: merged.recipes,
+            menus: merged.menus,
+          };
+        });
       },
 
       exportAll: () => {
@@ -454,6 +491,7 @@ export const useAppStore = create<AppState>()(
             recipes: s.recipes,
             packages: s.packages,
             menus: s.menus,
+            setting: s.setting,
           });
           return {
             ingredients: merged.ingredients,
