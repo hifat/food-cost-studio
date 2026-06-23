@@ -68,6 +68,7 @@ export default function RecipesView() {
     type: RecipeType;
     serving_size: number;
     serving_unit: UsageUnit;
+    include_overhead: boolean;
     ingredients: Recipe["ingredients"];
   }) => {
     if (editing) {
@@ -177,7 +178,7 @@ export default function RecipesView() {
                   <th className="table-th">Ingredients Used</th>
                   <th className="table-th text-right">Serving Size</th>
                   <th className="table-th">Serving Unit</th>
-                  <th className="table-th text-right">Raw Material Cost</th>
+                  <th className="table-th text-right">Material Cost</th>
                   <th className="table-th text-right">Cost Per Unit</th>
                   <th className="table-th w-32 text-right">Actions</th>
                 </tr>
@@ -188,7 +189,10 @@ export default function RecipesView() {
                   const servingSize = r.serving_size || 0;
                   const servingUnit = r.serving_unit || "piece";
                   const otherPct = toNumber(setting.other_percentage, 0);
-                  const adjustedTotal = round2(total + (total * otherPct) / 100);
+                  const includeOverhead = r.include_overhead ?? true;
+                  const adjustedTotal = includeOverhead 
+                    ? round2(total + (total * otherPct) / 100)
+                    : round2(total);
                   const costPerUnit = servingSize > 0 ? adjustedTotal / servingSize : 0;
                   const ingNames = r.ingredients
                     .map((ri) => {
@@ -335,7 +339,10 @@ function RecipeOverviewModal({
   );
 
   const otherPct = toNumber(setting.other_percentage, 0);
-  const adjustedFoodCost = round2(foodCost + (foodCost * otherPct) / 100);
+  const includeOverhead = recipe.include_overhead ?? true;
+  const adjustedFoodCost = includeOverhead 
+    ? round2(foodCost + (foodCost * otherPct) / 100)
+    : foodCost;
 
   return (
     <Modal
@@ -352,7 +359,7 @@ function RecipeOverviewModal({
           badgeValue={foodCost}
           badgeLabel="Raw Cost"
           tone="indigo"
-          hint={`Base cost + ${otherPct.toFixed(2)}% other expenses`}
+          hint={includeOverhead ? `Base cost + ${otherPct.toFixed(2)}% other expenses` : "Base cost (Overhead excluded)"}
         />
       </div>
 

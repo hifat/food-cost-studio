@@ -8,7 +8,7 @@ import SearchableSelect from "../../components/SearchableSelect";
 
 interface RecipeFormProps {
   initial?: Recipe | null;
-  onSave: (data: { name: string; type: RecipeType; serving_size: number; serving_unit: UsageUnit; ingredients: RecipeIngredient[] }) => void;
+  onSave: (data: { name: string; type: RecipeType; serving_size: number; serving_unit: UsageUnit; include_overhead: boolean; ingredients: RecipeIngredient[] }) => void;
   onCancel?: () => void;
   showCancel?: boolean;
 }
@@ -20,11 +20,13 @@ export default function RecipeForm({
   showCancel,
 }: RecipeFormProps) {
   const ingredients = useAppStore((s) => s.ingredients);
+  const setting = useAppStore((s) => s.setting);
 
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<RecipeType>(initial?.type ?? "FOOD");
   const [servingSize, setServingSize] = useState<number>(initial?.serving_size ?? 1);
   const [servingUnit, setServingUnit] = useState<UsageUnit>(initial?.serving_unit ?? "piece");
+  const [includeOverhead, setIncludeOverhead] = useState<boolean>(initial?.include_overhead ?? true);
   const [rows, setRows] = useState<RecipeIngredient[]>(
     initial ? initial.ingredients.map((r) => ({ ...r })) : [],
   );
@@ -89,13 +91,14 @@ export default function RecipeForm({
       ...r,
       actual_price: computeRecipeIngredientActual(r, ingredients),
     }));
-    onSave({ name: trimmed, type, serving_size: servingSize, serving_unit: servingUnit, ingredients: computed });
+    onSave({ name: trimmed, type, serving_size: servingSize, serving_unit: servingUnit, include_overhead: includeOverhead, ingredients: computed });
     if (!initial) {
       // Reset only when creating
       setName("");
       setType("FOOD");
       setServingSize(1);
       setServingUnit("piece");
+      setIncludeOverhead(true);
       setRows([]);
     }
   };
@@ -106,12 +109,14 @@ export default function RecipeForm({
       setType(initial.type);
       setServingSize(initial.serving_size ?? 1);
       setServingUnit(initial.serving_unit ?? "piece");
+      setIncludeOverhead(initial.include_overhead ?? true);
       setRows(initial.ingredients.map((r) => ({ ...r })));
     } else {
       setName("");
       setType("FOOD");
       setServingSize(1);
       setServingUnit("piece");
+      setIncludeOverhead(true);
       setRows([]);
     }
   };
@@ -120,26 +125,37 @@ export default function RecipeForm({
     (s, r) => s + computeRecipeIngredientActual(r, ingredients),
     0,
   );
+  
+  const otherPct = setting?.other_percentage || 0;
+  const estimatedTotalWithOverhead = total + (total * otherPct) / 100;
 
   return (
     <form onSubmit={handleSubmit} className="card p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+      <div className="flex items-start gap-2 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
           <ChefHat className="w-4 h-4" />
         </div>
-        <h2 className="text-base font-semibold text-slate-800">
-          {initial ? "Edit Recipe" : "New Recipe"}
-        </h2>
-        {initial && (
-          <span className="badge bg-amber-50 text-amber-700 border border-amber-200 ml-1">
-            Editing
-          </span>
-        )}
+        <div className="flex flex-col">
+          <div className="flex items-center">
+            <h2 className="text-base font-semibold text-slate-800">
+              {initial ? "Edit Recipe" : "New Recipe"}
+            </h2>
+            {initial && (
+              <span className="badge bg-amber-50 text-amber-700 border border-amber-200 ml-2">
+                Editing
+              </span>
+            )}
+          </div>
+        </div>
         <div className="ml-auto text-right">
           <div className="text-[10px] uppercase tracking-wider text-slate-500">
             Live total
           </div>
           <div className="text-lg font-bold text-indigo-600">{fmtTHB(total)}</div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">
+            Estimated Total with Overhead
+          </div>
+          <div className="text-sm font-semibold text-indigo-500">{fmtTHB(estimatedTotalWithOverhead)}</div>
         </div>
       </div>
 
@@ -199,6 +215,19 @@ export default function RecipeForm({
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="mb-4 flex items-center gap-2">
+        <input 
+          type="checkbox" 
+          id="includeOverhead" 
+          checked={includeOverhead} 
+          onChange={(e) => setIncludeOverhead(e.target.checked)} 
+          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <label htmlFor="includeOverhead" className="text-sm font-medium text-slate-700">
+          Include Overhead / Base Cost
+        </label>
       </div>
 
       {/* Ingredients section — no `overflow-hidden` here so the picker dropdown

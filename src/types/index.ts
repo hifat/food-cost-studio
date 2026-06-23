@@ -44,6 +44,7 @@ export interface Recipe {
   type: RecipeType;
   serving_size: number;
   serving_unit: UsageUnit;
+  include_overhead?: boolean;
   ingredients: RecipeIngredient[];
 }
 
