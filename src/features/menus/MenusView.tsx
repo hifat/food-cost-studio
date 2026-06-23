@@ -282,18 +282,14 @@ function OverviewModal({
     ...menu.packages.map((c) => ({ c, kind: "package" as const })),
   ];
 
-  // Base Food Cost = sum of all component actual_price values across all three buckets
+  // Food Cost = sum of all component actual_price values across all three buckets
   const baseFoodCost = round2(
     allComponents.reduce((sum, { c }) => sum + toNumber(c.actual_price, 0), 0),
   );
 
-  // Adjusted Food Cost = Base Food Cost + (Base Food Cost * other_percentage / 100)
-  const otherPct = toNumber(setting.other_percentage, 0);
-  const adjustedFoodCost = round2(baseFoodCost + (baseFoodCost * otherPct) / 100);
-
   const prices = useMemo(
-    () => computePlatformPrices(menu, setting, adjustedFoodCost),
-    [menu, setting, adjustedFoodCost],
+    () => computePlatformPrices(menu, setting, baseFoodCost),
+    [menu, setting, baseFoodCost],
   );
 
   // Safe fallbacks: when `prices` is null (no menu), every value degrades to 0.
@@ -303,6 +299,7 @@ function OverviewModal({
     lineman: 0,
     grab: 0,
     shopeeFood: 0,
+    vatFoodCost: 0,
     vatTarget: 0,
     vatActual: 0,
     vatLineman: 0,
@@ -319,14 +316,11 @@ function OverviewModal({
       size="xl"
     >
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-        <PriceBlockWithBadge
+        <PriceBlock
           label="Food Cost"
-          value={adjustedFoodCost}
-          badgeValue={baseFoodCost}
-          badgeLabel="Base Cost"
-          vatValue={null}
+          value={baseFoodCost}
+          vatValue={safePrices.vatFoodCost}
           tone="indigo"
-          hint={`+${otherPct.toFixed(2)}% overhead`}
         />
         <PriceBlock
           label="Target Selling Price"
@@ -336,7 +330,7 @@ function OverviewModal({
           hint={`Based on ${setting.food_cost_percentage}% food cost`}
         />
         <PriceBlock
-          label="Actual Store Selling"
+          label="Actual Selling Price"
           value={toNumber(menu.selling_price, 0)}
           vatValue={safePrices.vatActual}
           tone="slate"
@@ -398,9 +392,9 @@ function OverviewModal({
                   const subtotalCost =
                     toNumber(c.actual_price, 0) > 0
                       ? toNumber(c.actual_price, 0)
-                      : computeMenuComponentActual(c, ingredients, recipes, packages);
+                      : computeMenuComponentActual(c, ingredients, recipes, packages, setting);
                   const qty = c.usage_quantity || 0;
-                  const costPerUnit = qty > 0 ? subtotalCost / qty : computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages);
+                  const costPerUnit = qty > 0 ? subtotalCost / qty : computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting);
 
                   return (
                     <tr key={c.id} className="hover:bg-slate-50/60">
@@ -482,53 +476,3 @@ function PriceBlock({
     </div>
   );
 }
-
-function PriceBlockWithBadge({
-  label,
-  value,
-  badgeValue,
-  badgeLabel,
-  vatValue,
-  tone = "indigo",
-  hint,
-}: {
-  label: string;
-  value: number;
-  badgeValue: number;
-  badgeLabel: string;
-  vatValue: number | null;
-  tone?: "indigo" | "emerald" | "amber" | "rose" | "slate";
-  hint?: string;
-}) {
-  const tones: Record<string, string> = {
-    indigo: "from-indigo-500 to-indigo-600",
-    emerald: "from-emerald-500 to-emerald-600",
-    amber: "from-amber-500 to-amber-600",
-    rose: "from-rose-500 to-rose-600",
-    slate: "from-slate-500 to-slate-600",
-  };
-  return (
-    <div className="card p-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
-      <div className="flex items-baseline gap-2 mt-1">
-        <span
-          className={`text-lg font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent`}
-        >
-          {fmtTHB(value)}
-        </span>
-        <span className="badge bg-slate-100 text-slate-600 border border-slate-200 text-xs">
-          {badgeLabel}: {fmtTHB(badgeValue)}
-        </span>
-        {vatValue !== null && (
-          <span className="badge bg-slate-100 text-slate-600 border border-slate-200">
-            +VAT {fmtTHB(vatValue)}
-          </span>
-        )}
-      </div>
-      {hint && <div className="text-[10px] text-slate-400 mt-1">{hint}</div>}
-    </div>
-  );
-}
-

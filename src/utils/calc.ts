@@ -147,6 +147,7 @@ export const computeMenuComponentActual = (
   ingredients: Ingredient[],
   recipes: Recipe[],
   packages: Package[],
+  setting?: Setting,
 ): number => {
   // Try ingredient first
   const ing = ingredients.find((x) => x.id === comp.target_id);
@@ -155,7 +156,13 @@ export const computeMenuComponentActual = (
   // Try recipe (recipes are exposed as ingredients via recipe_id sync, but we also look up by id directly)
   const recipe = recipes.find((x) => x.id === comp.target_id);
   if (recipe) {
-    const recipeCost = computeRecipeTotalCost(recipe, ingredients);
+    const recipeCostRaw = computeRecipeTotalCost(recipe, ingredients);
+    const includeOverhead = recipe.include_overhead ?? true;
+    const otherPct = setting ? toNumber(setting.other_percentage, 0) : 0;
+    const recipeCost = includeOverhead 
+      ? round2(recipeCostRaw + (recipeCostRaw * otherPct) / 100)
+      : recipeCostRaw;
+
     // Derive Cost per Unit = (Total Cumulative Cost) / recipe.serving_size
     // Prevent division-by-zero with fallback to 1
     const servingSize = (recipe.serving_size !== undefined && recipe.serving_size > 0) ? recipe.serving_size : 1;
@@ -198,11 +205,12 @@ export const refreshComponentActualPrices = (
   ingredients: Ingredient[],
   recipes: Recipe[],
   packages: Package[],
+  setting?: Setting,
 ): MenuComponent[] =>
   comps.map((c) => ({
     ...c,
     actual_price: round2(
-      computeMenuComponentActual(c, ingredients, recipes, packages),
+      computeMenuComponentActual(c, ingredients, recipes, packages, setting),
     ),
   }));
 
@@ -220,6 +228,7 @@ export interface PlatformPrices {
   lineman: number;
   grab: number;
   shopeeFood: number;
+  vatFoodCost: number;
   vatTarget: number;
   vatActual: number;
   vatLineman: number;
@@ -251,9 +260,11 @@ export const computePlatformPrices = (
   const backCalc = (price: number, pct: number) =>
     pct >= 100 ? 0 : round2(safeDiv(price, 1 - pct / 100, 0));
 
-  const lineman = backCalc(sp, linemanPct);
-  const grab = backCalc(sp, grabPct);
-  const shopeeFood = backCalc(sp, shopeePct);
+  const effectiveSp = sp > 0 ? sp : targetSelling;
+
+  const lineman = backCalc(effectiveSp, linemanPct);
+  const grab = backCalc(effectiveSp, grabPct);
+  const shopeeFood = backCalc(effectiveSp, shopeePct);
 
   const addVat = (price: number) => round2(price * (1 + vatPct / 100));
 
@@ -263,6 +274,7 @@ export const computePlatformPrices = (
     lineman,
     grab,
     shopeeFood,
+    vatFoodCost: addVat(costWithOverhead),
     vatTarget: addVat(targetSelling),
     vatActual: addVat(sp),
     vatLineman: addVat(lineman),

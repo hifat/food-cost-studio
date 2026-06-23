@@ -169,16 +169,16 @@ export default function MenuForm({
   // the numbers update instantly as the user types. This is independent of
   // what's stored on each component (which is the persisted truth).
   const previewIngRows = useMemo(
-    () => refreshComponentActualPrices(ingRows, ingredients, recipes, packages),
-    [ingRows, ingredients, recipes, packages],
+    () => refreshComponentActualPrices(ingRows, ingredients, recipes, packages, setting),
+    [ingRows, ingredients, recipes, packages, setting],
   );
   const previewRecRows = useMemo(
-    () => refreshComponentActualPrices(recRows, ingredients, recipes, packages),
-    [recRows, ingredients, recipes, packages],
+    () => refreshComponentActualPrices(recRows, ingredients, recipes, packages, setting),
+    [recRows, ingredients, recipes, packages, setting],
   );
   const previewPkgRows = useMemo(
-    () => refreshComponentActualPrices(pkgRows, ingredients, recipes, packages),
-    [pkgRows, ingredients, recipes, packages],
+    () => refreshComponentActualPrices(pkgRows, ingredients, recipes, packages, setting),
+    [pkgRows, ingredients, recipes, packages, setting],
   );
 
   const previewMenu: Menu = useMemo(
@@ -222,9 +222,9 @@ export default function MenuForm({
     }
     // Persist the latest actual_price on every component so the stored cost
     // aggregates faithfully from `actual_price` sums.
-    const ing = refreshComponentActualPrices(ingRows, ingredients, recipes, packages);
-    const rec = refreshComponentActualPrices(recRows, ingredients, recipes, packages);
-    const pkg = refreshComponentActualPrices(pkgRows, ingredients, recipes, packages);
+    const ing = refreshComponentActualPrices(ingRows, ingredients, recipes, packages, setting);
+    const rec = refreshComponentActualPrices(recRows, ingredients, recipes, packages, setting);
+    const pkg = refreshComponentActualPrices(pkgRows, ingredients, recipes, packages, setting);
     onSave({
       name: trimmed,
       selling_price: Number(selling) || 0,
@@ -463,7 +463,7 @@ export default function MenuForm({
           items={previewIngRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updateIng}
           onRemove={removeIng}
         />
@@ -473,7 +473,7 @@ export default function MenuForm({
           items={previewRecRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updateRec}
           onRemove={removeRec}
         />
@@ -483,7 +483,7 @@ export default function MenuForm({
           items={previewPkgRows}
           nameLookup={targetName}
           costLookup={(c) => c.actual_price}
-          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages)}
+          unitCostLookup={(c) => computeMenuComponentActual({ ...c, usage_quantity: 1 }, ingredients, recipes, packages, setting)}
           onUpdate={updatePkg}
           onRemove={removePkg}
         />
