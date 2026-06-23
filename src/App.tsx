@@ -26,8 +26,8 @@ type TabId = "dashboard" | "ingredients" | "recipes" | "packages" | "menus" | "s
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "dashboard", label: "Dashboard", icon: <Calculator className="w-4 h-4" /> },
   { id: "ingredients", label: "Ingredients", icon: <Layers className="w-4 h-4" /> },
-  { id: "recipes", label: "Recipes", icon: <ChefHat className="w-4 h-4" /> },
   { id: "packages", label: "Packages", icon: <PackageIcon className="w-4 h-4" /> },
+  { id: "recipes", label: "Recipes", icon: <ChefHat className="w-4 h-4" /> },
   { id: "menus", label: "Menus", icon: <UtensilsCrossed className="w-4 h-4" /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon className="w-4 h-4" /> },
 ];
@@ -128,11 +128,10 @@ export default function App() {
                   <button
                     key={t.id}
                     onClick={() => setActive(t.id)}
-                    className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      isActive
+                    className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${isActive
                         ? "border-indigo-600 text-indigo-700"
                         : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                    }`}
+                      }`}
                   >
                     {t.icon}
                     {t.label}
@@ -314,9 +313,8 @@ function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p
-                      className={`text-sm font-semibold ${
-                        row.profit >= 0 ? "text-emerald-600" : "text-rose-600"
-                      }`}
+                      className={`text-sm font-semibold ${row.profit >= 0 ? "text-emerald-600" : "text-rose-600"
+                        }`}
                     >
                       {fmtTHB(row.profit)}
                     </p>
@@ -399,9 +397,8 @@ function DashStat({
         {label}
       </div>
       <div
-        className={`${
-          large ? "text-2xl" : "text-xl"
-        } font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent mt-1`}
+        className={`${large ? "text-2xl" : "text-xl"
+          } font-bold bg-gradient-to-br ${tones[tone]} bg-clip-text text-transparent mt-1`}
       >
         {value}
       </div>
