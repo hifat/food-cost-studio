@@ -32,18 +32,25 @@ export default function RecipesView() {
   const [typeFilter, setTypeFilter] = useState<FilterType>("FOOD");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Recipe | null>(null);
+  const [prefill, setPrefill] = useState<Recipe | null>(null);
   const [overview, setOverview] = useState<Recipe | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Recipe | null>(null);
   const formAnchorRef = useRef<HTMLDivElement>(null);
 
   const handleDuplicate = (r: Recipe) => {
-    addRecipe({
+    setPrefill({
+      ...r,
+      id: `new_${Date.now()}`,
       name: r.name + " (Copy)",
       type: r.type,
       serving_size: r.serving_size,
       serving_unit: r.serving_unit,
       include_overhead: r.include_overhead,
       ingredients: r.ingredients.map(ri => ({ ...ri })),
+    });
+    setEditing(null);
+    requestAnimationFrame(() => {
+      formAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   };
 
@@ -87,11 +94,13 @@ export default function RecipesView() {
       setEditing(null);
     } else {
       addRecipe(data);
+      if (prefill) setPrefill(null);
     }
   };
 
   const handleEdit = (r: Recipe) => {
     setEditing(r);
+    setPrefill(null);
     // Smoothly scroll the inline form into view
     requestAnimationFrame(() => {
       formAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -100,6 +109,7 @@ export default function RecipesView() {
 
   const handleCancelEdit = () => {
     setEditing(null);
+    setPrefill(null);
   };
 
   const handleDelete = (r: Recipe) => {
@@ -139,14 +149,14 @@ export default function RecipesView() {
         </div>
       </div>
 
-      {/* Inline Recipe Form (anchor for edit-scroll) */}
+      {/* Inline form (anchor for edit-scroll) */}
       <div ref={formAnchorRef} className="mb-5">
         <RecipeForm
-          key={editing?.id ?? "__new__"}
-          initial={editing}
+          key={editing?.id ?? prefill?.id ?? "__new__"}
+          initial={editing || prefill}
           onSave={handleSave}
-          onCancel={handleCancelEdit}
-          showCancel={!!editing}
+          onCancel={editing || prefill ? handleCancelEdit : undefined}
+          showCancel={!!(editing || prefill)}
         />
       </div>
 
